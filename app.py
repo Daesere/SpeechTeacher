@@ -59,8 +59,8 @@ class API:
             filename = f"tmp.wav"
             filepath = os.path.join(RECORDINGS_DIR, filename)
             score, substituted, inserted, deleted, conversation = listener(sentence, filepath)
-            with open("out.pkl", "w") as f:
-                pickle.dumps((score, substituted, inserted, deleted, conversation), f)
+            # with open("out.pkl", "w") as f:
+            #     pickle.dumps((score, substituted, inserted, deleted, conversation), f)
             print(score, substituted, inserted, deleted, conversation)
 
             corrections = substituted + inserted + deleted

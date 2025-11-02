@@ -19,10 +19,10 @@ class Listener():
     """
     def __init__(self):
         self.model_name = "facebook/wav2vec2-lv-60-espeak-cv-ft"
-        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(self.model_name)
-        self.tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_name)
-        self.processor = Wav2Vec2Processor.from_pretrained(self.model_name, feature_extractor=self.feature_extractor, tokenizer=self.tokenizer)
-        self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
+        # self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(self.model_name)
+        # self.tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_name)
+        # self.processor = Wav2Vec2Processor.from_pretrained(self.model_name, feature_extractor=self.feature_extractor, tokenizer=self.tokenizer)
+        # self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
 
     def speech2phonemes(self, audio_path):
         """Transforms user audio into IPA phonemes for evaluation"""
@@ -82,8 +82,66 @@ class Listener():
     def __call__(self, reference_text, audio_path):
         """Makes the whole pipeline run from start to finish"""
         # Step 1. Get the user's phonemes and the reference phonemes
-
+        similarity = 75
+    
+        # Simulated phonemes (actual IPA representations)
+        target_phonemes = "ˈænθəni laɪks ˈæpəl paɪ"
+        user_phonemes = "ˈænθəni laks ˈæpəl paɪ"
         
+        # Simulated error locations
+        substituted = [{
+            'viseme_path': 'visemes/viseme-id-2.jpg',  # Example path
+            'start_index': 8,
+            'end_index': 12,
+            'type': 'substitution',
+            'correct': 'laɪks'
+        }]
+        
+        inserted = []  # No insertions in this example
+        
+        deleted = []   # No deletions in this example
+        
+        
+        feedback = """Here's my feedback on your pronunciation:
+
+        1. Overall Score: 75% - Good effort, but there's room for improvement!
+
+        2. Specific Observations:
+        • The word "likes" needs attention - you said "laks" instead of "laɪks"
+        • Your pronunciation of "Anthony" and "apple pie" was excellent
+        • The rhythm and timing of your speech is natural
+
+        3. Tips for Improvement:
+        • For "likes": Make the "aɪ" sound by starting with "ah" and gliding to "ee"
+        • Try saying: "l-eye-k-s" slowly, then speed it up
+        • Practice this sound in other words like: "time", "ride", "life"
+
+        4. What You Did Well:
+        • Clear pronunciation of consonants
+        • Good word stress patterns
+        • Natural speaking pace
+
+        Here's my feedback on your pronunciation:
+
+        1. Overall Score: 75% - Good effort, but there's room for improvement!
+
+        2. Specific Observations:
+        • The word "likes" needs attention - you said "laks" instead of "laɪks"
+        • Your pronunciation of "Anthony" and "apple pie" was excellent
+        • The rhythm and timing of your speech is natural
+
+        3. Tips for Improvement:
+        • For "likes": Make the "aɪ" sound by starting with "ah" and gliding to "ee"
+        • Try saying: "l-eye-k-s" slowly, then speed it up
+        • Practice this sound in other words like: "time", "ride", "life"
+
+        4. What You Did Well:
+        • Clear pronunciation of consonants
+        • Good word stress patterns
+        • Natural speaking pace
+
+        Keep practicing these sounds, and you'll see improvement quickly! Would you like to try again?"""
+        return similarity, substituted, inserted, deleted, feedback
         user_phonemes = self.speech2phonemes(audio_path)
         target_phonemes = self.text2phonemes(reference_text)
 

@@ -336,6 +336,9 @@ function showFeedback(result) {
         feedbackHTML += '<div class="corrections-container">';
         feedbackHTML += '<h3>Your Pronunciation:</h3>';
         feedbackHTML += '<div class="sentence-with-corrections">';
+        feedbackHTML += highlightSentenceWithCorrections(result.sentence, null);
+        feedbackHTML += '</div>';
+        feedbackHTML += '<div class="sentence-with-corrections">';
         feedbackHTML += highlightSentenceWithCorrections(result.sentence, result.corrections);
         feedbackHTML += '</div>';
         

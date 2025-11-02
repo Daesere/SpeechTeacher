@@ -40,6 +40,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative;
 }
 
 /* Header Styles */
@@ -92,8 +93,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     min-height: 0;
+    padding-right: 5px; /* Add padding for scrollbar */
 }
 
 /* Card Styles */
@@ -186,11 +189,6 @@ body {
 .recording-controls,
 .audio-player,
 .feedback-wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -392,8 +390,9 @@ audio {
     border-radius: 12px;
     animation: fadeIn 0.5s ease;
     gap: 20px;
+    max-height: calc(100vh - 200px); /* Account for header and padding */
     overflow-y: auto;
-    max-height: 100%;
+    margin-bottom: 20px;
 }
 
 .feedback-message {
@@ -402,23 +401,32 @@ audio {
     text-align: left;
 }
 
-.feedback-wrapper .btn {
-    margin-top: 10px;
-    flex-shrink: 0;
+.feedback-wrapper {
+    text-align: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 12px;
+    animation: fadeIn 0.5s ease;
+    gap: 20px;
+    overflow-y: auto; /* use auto instead of scroll */
+    max-height: 80vh; /* adjust as needed */
+    box-sizing: border-box;
 }
+
 
 /* Feedback Layout - Side by side */
 .feedback-layout {
     display: flex;
-    gap: 20px;
+    flex-direction: column;
     align-items: flex-start;
     width: 100%;
 }
 
 /* Corrections Display */
 .corrections-container {
-    flex: 1;
     min-width: 0;
+    width: 100%;
 }
 
 .corrections-container h3 {
@@ -439,6 +447,7 @@ audio {
     margin-bottom: 20px;
     backdrop-filter: blur(10px);
     word-wrap: break-word;
+    word-break: break-word;
 }
 
 .correct-text {
@@ -626,6 +635,62 @@ audio {
     transition: width 0.8s ease;
 }
 
+/* AI Message Styles */
+.ai-message {
+    text-align: left;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 20px;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    margin-top: 20px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.ai-message p {
+    margin-bottom: 12px;
+}
+
+.ai-message p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-message strong {
+    color: #fff;
+    font-weight: 700;
+}
+
+.ai-message em {
+    font-style: italic;
+    opacity: 0.9;
+}
+
+.ai-message code {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 14px;
+}
+
+.ai-message a {
+    color: #fff;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+    transition: opacity 0.2s;
+}
+
+.ai-message a:hover {
+    opacity: 0.8;
+}
+
+.ai-message.perfect {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+}
+
 /* Old feedback section (removed) */
 .feedback-section.card {
     display: none;
@@ -682,10 +747,6 @@ audio {
 
     .action-buttons .btn {
         width: 100%;
-    }
-    
-    .feedback-layout {
-        flex-direction: column;
     }
     
     .viseme-corrections {

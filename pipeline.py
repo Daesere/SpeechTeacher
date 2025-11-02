@@ -7,7 +7,7 @@ import torch
 import os
 
 # Modules that we developed
-from viseme_feedback.viseme_identifier import viseme_path_identifier
+from backend.quen3_model import nl_feedback, viseme_path_identifier
 
 # Specific for my implementation on my personal computer
 os.environ['PHONEMIZER_ESPEAK_LIBRARY'] = 'C:/Program Files/eSpeak NG/libespeak-ng.dll'
@@ -82,6 +82,8 @@ class Listener():
     def __call__(self, reference_text, audio_path):
         """Makes the whole pipeline run from start to finish"""
         # Step 1. Get the user's phonemes and the reference phonemes
+
+        
         user_phonemes = self.speech2phonemes(audio_path)
         target_phonemes = self.text2phonemes(reference_text)
 
@@ -91,7 +93,7 @@ class Listener():
         # 3. Bundle errors
         substituted = [
             {
-                'viseme_path': viseme_path_identifier(target_phonemes[deletion[0][0]:deletion[0][0]]),
+                'viseme_path': viseme_path_identifier(target_phonemes[deletion[0][0]:deletion[0][1]]),
                 'start_index': int(deletion[0][0]),
                 'end_index': int(deletion[0][1]),
                 'type': 'substitution',
@@ -113,16 +115,22 @@ class Listener():
 
         deleted = [
             {
-                'viseme_path': viseme_path_identifier(target_phonemes[insertion[0][0]:insertion[0][0]]),
+                'viseme_path': viseme_path_identifier(target_phonemes[deletion[0][0]:deletion[0][1]]),
                 'index': int(deletion[0][0]),
                 'type': 'deletion',
-                'correct': reference_text[insertion[0][0]:insertion[0][1]]
+                'correct': reference_text[deletion[0][0]:deletion[0][1]]
             }
 
             for deletion in deletions
         ]
 
-        return similarity, substituted, inserted, deleted
+        errors = [target_phonemes[deletion[0][0]:deletion[0][1]] for deletion in deletions] + [target_phonemes[sub[0][0]:sub[0][1]] for sub in substitutions]
+        feedback = nl_feedback(reference_text, target_phonemes, user_phonemes, errors)
+        
+        # Add some formatting to make the feedback stand out
+        conversation = f"**Feedback**: {feedback}"
+
+        return similarity, substituted, inserted, deleted, feedback
     
 listener = Listener()
 

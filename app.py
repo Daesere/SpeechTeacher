@@ -2,6 +2,11 @@ import webview
 import os
 import base64
 from datetime import datetime
+from pipeline import listener
+
+from pydub import AudioSegment
+import io
+import pickle
 
 # Create recordings directory if it doesn't exist
 RECORDINGS_DIR = "recordings"
@@ -26,12 +31,12 @@ class API:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             safe_sentence = "".join(c for c in sentence if c.isalnum() or c in (" ", "-", "_")).strip()
             safe_sentence = safe_sentence[:30]  # Limit length
-            filename = f"{timestamp}_{safe_sentence}.wav"
+            filename = f"tmp.wav"
             filepath = os.path.join(RECORDINGS_DIR, filename)
 
-            # Save audio file
-            with open(filepath, "wb") as f:
-                f.write(audio_bytes)
+            # Save audio file using pydub
+            audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
+            audio.export(filepath, format="wav")
 
             print(f"Audio saved: {filepath}")
 
@@ -51,35 +56,25 @@ class API:
         sentence = sentence.strip()
 
         try:
-            # This is where you'll integrate your AI model
-            # For now, return mock feedback
-            # correction: (start_index, end_index, insertion|substitution|deletion, viseme_img_path)
-            corrections_output = [
-                (10, 12, "substitution", "visemes/viseme-id-0.jpg"),
-                (23, 24, "insertion"),
-            ]
+            filename = f"tmp.wav"
+            filepath = os.path.join(RECORDINGS_DIR, filename)
+            score, substituted, inserted, deleted, conversation = listener(sentence, filepath)
+            with open("out.pkl", "w") as f:
+                pickle.dumps((score, substituted, inserted, deleted, conversation), f)
+            print(score, substituted, inserted, deleted, conversation)
 
-            corrections = []
-            for correction in corrections_output:
-                corrections.append(
-                    {
-                        "start_index": correction[0],
-                        "end_index": correction[1],
-                        "type": correction[2],
-                    }
-                )
-                if len(correction) > 3:
-                    corrections[-1]["viseme_img_path"] = correction[3]
+            corrections = substituted + inserted + deleted
 
             return {
                 "success": True,
                 "sentence": sentence,
                 "corrections": corrections,
-                "message": "Great job! Your pronunciation is clear and accurate.",
-                "score": 85,
+                "message": conversation,
+                "score": score,
             }
 
         except Exception as e:
+            print(e.with_traceback())
             print(f"Error analyzing audio: {str(e)}")
             return {"success": False, "error": str(e)}
 

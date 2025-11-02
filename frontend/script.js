@@ -282,6 +282,12 @@ async function submitRecording() {
         // Convert to base64
         const base64Audio = await blobToBase64(audioBlob);
         
+        // Also save the audio
+        await window.pywebview.api.save_audio(
+            base64Audio,
+            sentenceDisplay.textContent
+        );
+
         // Call Python backend via pywebview API to analyze
         const result = await window.pywebview.api.analyze_audio(
             base64Audio,
@@ -290,12 +296,6 @@ async function submitRecording() {
         
         if (result.success) {
             console.log('Analysis complete:', result);
-            
-            // Also save the audio
-            await window.pywebview.api.save_audio(
-                base64Audio,
-                sentenceDisplay.textContent
-            );
             
             // Show feedback with corrections
             showFeedback(result);
@@ -312,6 +312,8 @@ async function submitRecording() {
 
 // Show feedback
 function showFeedback(result) {
+    console.log('Full result from backend:', result);
+    
     // Hide recording controls and audio player
     recordingControls.classList.add('hidden');
     audioPlayer.classList.add('hidden');
@@ -319,6 +321,11 @@ function showFeedback(result) {
     // Show feedback section
     feedbackSection.classList.remove('hidden');
     
+    // Convert AI message (markdown) to safe HTML
+    console.log('Raw message from backend:', result.message);
+    const messageHtml = markdownToHtml(result.message || '');
+    console.log('Converted message HTML:', messageHtml);
+
     let feedbackHTML = '';
     
     // Show sentence with highlighted corrections
@@ -332,7 +339,7 @@ function showFeedback(result) {
         feedbackHTML += highlightSentenceWithCorrections(result.sentence, result.corrections);
         feedbackHTML += '</div>';
         
-        // Show score under sentence
+    // Show score under sentence
         if (result.score !== undefined) {
             const scoreColor = result.score >= 90 ? '#58CC02' : result.score >= 70 ? '#FFC800' : '#FF4B4B';
             feedbackHTML += `
@@ -369,7 +376,16 @@ function showFeedback(result) {
             });
             feedbackHTML += '</div>';
         }
-        
+
+        // AI message (markdown converted to HTML) - always show the message even when there are corrections
+        if (messageHtml) {
+            feedbackHTML += `
+                <div class="ai-message">
+                    ${messageHtml}
+                </div>
+            `;
+        }
+
         feedbackHTML += '</div>';
     } else {
         feedbackHTML += '<div class="perfect-message">';
@@ -377,9 +393,10 @@ function showFeedback(result) {
         feedbackHTML += '<circle cx="12" cy="12" r="10" fill="#58CC02"/>';
         feedbackHTML += '<path d="M8 12L11 15L16 9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
         feedbackHTML += '</svg>';
-        feedbackHTML += `<p style="font-size: 18px; font-weight: 700;">${result.message}</p>`;
+        // Render converted markdown message
+        feedbackHTML += `<div class="ai-message perfect">${messageHtml}</div>`;
         feedbackHTML += '</div>';
-        
+
         // Show score for perfect score
         if (result.score !== undefined) {
             const scoreColor = result.score >= 90 ? '#58CC02' : result.score >= 70 ? '#FFC800' : '#FF4B4B';
@@ -399,6 +416,51 @@ function showFeedback(result) {
     
     // Set up hover interactions after content is rendered
     setupCorrectionHoverEffects();
+}
+
+// Simple HTML-escaping helper
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Lightweight markdown -> HTML converter (supports **bold**, *italic*, `code`, [link](url), and line breaks)
+function markdownToHtml(md) {
+    if (!md) return '';
+    // Escape HTML first to avoid XSS
+    let html = escapeHtml(md);
+
+    // Convert links: [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    // Bold: **text**
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Italic: *text* (avoid conflict with bold by running after)
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    // Inline code: `code`
+    html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+
+    // Replace double newlines with paragraph breaks, single newline -> <br>
+    // First normalize CRLF to LF
+    html = html.replace(/\r\n/g, '\n');
+    html = html.replace(/\n\n+/g, '</p><p>');
+    // Wrap with paragraph tags if there are paragraphs
+    if (html.indexOf('</p><p>') !== -1) {
+        html = '<p>' + html + '</p>';
+        // Escape the regex boundary by escaping the slash in the closing tag
+        html = html.replace(/<\/p><p>/g, '</p><p>');
+    }
+    // Single newlines to <br>
+    // After wrapping paragraphs above, replace remaining newlines with <br>
+    html = html.replace(/\n/g, '<br>');
+
+    return html;
 }
 
 // Setup hover effects to highlight corresponding viseme cards

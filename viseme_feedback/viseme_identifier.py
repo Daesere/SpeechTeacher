@@ -127,7 +127,7 @@ def viseme_identifier(diffs):
             ids.append((image_id, two))
         elif one is not None:
             image_id = one
-            ids.append((image_id, one))
+            ids.append((image_id, one))s
 
         i += 1
         

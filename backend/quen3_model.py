@@ -1,136 +1,37 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+import ollama
 import os
 
+# --------------------------
+# IPA → Viseme mapping
+# --------------------------
 ipa_to_viseme = {
-    # Viseme 0: Silence
-    '_': 0,
-    ' ': 0,
-    
-    # Viseme 1: ae, ax, ah
-    'æ': 1,
-    'a': 1,
-    'ə': 1,
-    'ʌ': 1,
-    'ɐ': 1,
-    
-    # Viseme 2: aa
-    'ɑ': 2,
-    'ɑː': 2,
-    'ɒ': 2,
-    
-    # Viseme 3: ao
-    'ɔ': 3,
-    'ɔː': 3,
-    
-    # Viseme 4: ey
-    'e': 4,
-    'eɪ': 4,
-    'ɛ': 4,
-    
-    # Viseme 5: er
-    'ɜ': 5,
-    'ɜː': 5,
-    'ɝ': 5,
-    'ɚ': 5,
-    
-    # Viseme 6: y, iy, ih, ix
-    'j': 6,
-    'i': 6,
-    'iː': 6,
-    'ɪ': 6,
-    'ɨ': 6,
-    
-    # Viseme 7: w, uw
-    'w': 7,
-    'u': 7,
-    'uː': 7,
-    'ʊ': 7,
-    
-    # Viseme 8: ow
-    'o': 8,
-    'oʊ': 8,
-    'əʊ': 8,
-    
-    # Viseme 9: aw
+    '_': 0, ' ': 0,
+    'æ': 1, 'a': 1, 'ə': 1, 'ʌ': 1, 'ɐ': 1,
+    'ɑ': 2, 'ɑː': 2, 'ɒ': 2,
+    'ɔ': 3, 'ɔː': 3,
+    'e': 4, 'eɪ': 4, 'ɛ': 4,
+    'ɜ': 5, 'ɜː': 5, 'ɝ': 5, 'ɚ': 5,
+    'j': 6, 'i': 6, 'iː': 6, 'ɪ': 6, 'ɨ': 6,
+    'w': 7, 'u': 7, 'uː': 7, 'ʊ': 7,
+    'o': 8, 'oʊ': 8, 'əʊ': 8,
     'aʊ': 9,
-    
-    # Viseme 10: oy
     'ɔɪ': 10,
-    
-    # Viseme 11: ay
     'aɪ': 11,
-    
-    # Viseme 12: h
-    'h': 12,
-    'ɦ': 12,
-    
-    # Viseme 13: r
-    'r': 13,
-    'ɹ': 13,
-    'ɾ': 13,
-    
-    # Viseme 14: l
-    'l': 14,
-    'ɫ': 14,
-    
-    # Viseme 15: s, z
-    's': 15,
-    'z': 15,
-    
-    # Viseme 16: sh, ch, jh, zh
-    'ʃ': 16,
-    'tʃ': 16,
-    'dʒ': 16,
-    'ʒ': 16,
-    
-    # Viseme 17: th, dh
-    'θ': 17,
-    'ð': 17,
-    
-    # Viseme 18: f, v
-    'f': 18,
-    'v': 18,
-    
-    # Viseme 19: d, t, n
-    'd': 19,
-    't': 19,
-    'n': 19,
-    
-    # Viseme 20: k, g, ng
-    'k': 20,
-    'g': 20,
-    'ŋ': 20,
-    'ɡ': 20,
-    
-    # Viseme 21: p, b, m
-    'p': 21,
-    'b': 21,
-    'm': 21,
+    'h': 12, 'ɦ': 12,
+    'r': 13, 'ɹ': 13, 'ɾ': 13,
+    'l': 14, 'ɫ': 14,
+    's': 15, 'z': 15,
+    'ʃ': 16, 'tʃ': 16, 'dʒ': 16, 'ʒ': 16,
+    'θ': 17, 'ð': 17,
+    'f': 18, 'v': 18,
+    'd': 19, 't': 19, 'n': 19,
+    'k': 20, 'g': 20, 'ŋ': 20, 'ɡ': 20,
+    'p': 21, 'b': 21, 'm': 21
 }
 
-def viseme_identifier(diffs):
-    ids = []
-
-    for diff in diffs:
-        one = ipa_to_viseme.get(diff, None)
-        image_id = 0
-        if one is not None:
-            image_id = one
-            ids.append((image_id, one))
-        
-    return ids
-
-def viseme_path_identifier(diffs):
-    ids = viseme_identifier(diffs)
-    paths = []
-    for id, phoneme in ids:
-        path = f"./viseme_feedback/visemes/viseme-id-{id}.jpg"
-        paths.append(path)
-    return paths
-
-
-
-
+# --------------------------
+# Viseme descriptions
+# --------------------------
 viseme_descriptions = {
     0: "Silence — neutral or closed mouth, lips relaxed.",
     1: "æ, a, ə, ʌ, ɐ — mid-open jaw, lips relaxed or slightly spread (as in 'cat', 'cup').",
@@ -156,58 +57,67 @@ viseme_descriptions = {
     21: "p, b, m — closed lips, full bilabial contact (as in 'pat', 'bat', 'man')."
 }
 
-model_name = "Qwen/Qwen3-8B"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+# --------------------------
+# Viseme identification
+# --------------------------
+def viseme_identifier(diffs):
+    ids = []
+    
+    for diff in diffs:
+        one = ipa_to_viseme.get(diff, 0)
+        
+        ids.append((one, diff))
+        
+    return ids
 
-from transformers import AutoModelForCausalLM
+def viseme_path_identifier(diffs):
+    ids = viseme_identifier(diffs)
+    paths = []
+    for id, phoneme in ids:
+        path = f"./viseme_feedback/visemes/viseme-id-{id}.jpg"
+        paths.append(path)
+    return paths
 
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    load_in_4bit=True,
-    device_map="auto" # Automatically infers device mapping
-)
-
-model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
-
-base_history = "You are a phonetics coach helping learners improve pronunciation."
-
-history = [
-    {"role": "system", "content": base_history}
-]
-
-
+# --------------------------
+# Prompt construction
+# --------------------------
 def extract_input(sentence, expected_phonemes, user_phonemes, errors):
-    
-    viseme_ids: tuple[str, int] = viseme_identifier(errors)
-    
-    input_string = f"The user pronounced the sentence \"{sentence}\" this way: {user_phonemes} with the expected way being: {expected_phonemes}."
-
+    viseme_ids = viseme_identifier(errors)
     input_string = (
-    f"The user pronounced the sentence \"{sentence}\" as: {user_phonemes}.\n"
-    f"The correct pronunciation should be: {expected_phonemes}.\n"
+        f"The user pronounced the sentence \"{sentence}\" as: {user_phonemes}.\n"
+        f"The correct pronunciation should be: {expected_phonemes}.\n"
     )
-
     for viseme_id, phoneme in viseme_ids:
         input_string += (
             f"\n- Mistake: {phoneme}\n"
             f"  → Description: {viseme_descriptions[viseme_id]}"
         )
+    input_string += "\n\nExplain what went wrong and give advice to correct it. Add at the end some potential sentences (1 to 10 words) they could try."
     return input_string
+
+# --------------------------
+# Ollama setup
+# --------------------------
+history = [{"role": "system", "content": "You are a phonetics coach helping learners improve pronunciation. Strictly follow the instructions please."}]
 
 def nl_feedback(sentence, expected_phonemes, user_phonemes, errors):
     global history
     user_input = extract_input(sentence, expected_phonemes, user_phonemes, errors)
     history.append({"role": "user", "content": user_input})
 
-    chat_input = tokenizer.apply_chat_template(history, tokenize=False, add_generation_prompt=True)
-    inputs = tokenizer([chat_input], return_tensors="pt").to(model.device)
-    output_ids = model.generate(**inputs, max_new_tokens=1024)
-    output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+    response = ollama.chat(
+        model="qwen3:8b",  # replace with your Ollama model name
+        messages=history,
+        think=False,
+        options={"temperature": 0.0}
+    )
+    print(response)
 
-    history.append({"role": "assistant", "content": output})
+    assistant_text = response['message']['content']
+    history.append({"role": "assistant", "content": assistant_text})
+
+    # Keep history short
     if len(history) > 10:
         history = history[:1] + history[-9:]
-    return output
 
-print(nl_feedback("Anthony likes apple pie", "ænθənilaɪksæpəlpaɪ", "æmθənilaɪksæpəlpaɪ", ["m"]))
-
+    return assistant_text

@@ -1,14 +1,18 @@
-from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2Tokenizer,Wav2Vec2Processor, Wav2Vec2ForCTC
+from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2CTCTokenizer,Wav2Vec2Processor, Wav2Vec2ForCTC
 from phonemizer import phonemize
+from phonemizer.separator import Separator
 import Levenshtein as lev
 import librosa
 import torch
 import os
 
+# Modules that we developed
+from viseme_feedback.viseme_identifier import viseme_path_identifier
+
 # Specific for my implementation on my personal computer
 os.environ['PHONEMIZER_ESPEAK_LIBRARY'] = 'C:/Program Files/eSpeak NG/libespeak-ng.dll'
 
-class Pipeline():
+class Listener():
     """
     Evaluates speech and returns feedback to
     target pronunciation points that require further work.
@@ -16,7 +20,7 @@ class Pipeline():
     def __init__(self):
         self.model_name = "facebook/wav2vec2-lv-60-espeak-cv-ft"
         self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(self.model_name)
-        self.tokenizer = Wav2Vec2Tokenizer.from_pretrained(self.model_name)
+        self.tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_name)
         self.processor = Wav2Vec2Processor.from_pretrained(self.model_name, feature_extractor=self.feature_extractor, tokenizer=self.tokenizer)
         self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
 
@@ -48,7 +52,7 @@ class Pipeline():
         opcodes = lev.opcodes(target_phonemes, user_phonemes)
         # Compute a percentage similarity based on Levenshtein distance
         distance = lev.distance(target_phonemes, user_phonemes)
-        similarity = round(distance/max(len(user_phonemes), len(target_phonemes))*100, 2)
+        similarity = round(100 - distance/max(len(user_phonemes), len(target_phonemes))*100)
 
         matches = []
         substitutions = []
@@ -71,19 +75,60 @@ class Pipeline():
 
         return similarity, matches, substitutions, deletions, insertions
     
-    def get_viseme(self, phoneme):
-        """Returns a viseme and a description for a phoneme"""
 
     def get_feedback(self, phoneme):
         """Returns the corresponding feedback to help understand a phoneme"""
     
-    def __call__(self):
+    def __call__(self, reference_text, audio_path):
         """Makes the whole pipeline run from start to finish"""
         # Step 1. Get the user's phonemes and the reference phonemes
-        user_phonemes = self.speech2phonemes('some_arbitrary_audio_path.wav')
-        target_phonemes = self.text2phonemes('some_reference_speech')
+        user_phonemes = self.speech2phonemes(audio_path)
+        target_phonemes = self.text2phonemes(reference_text)
 
         # Step 2. Get similarity misalignment indices between attempt and target
         similarity, matches, substitutions, deletions, insertions = self.get_misalignments(user_phonemes, target_phonemes)
+        
+        # 3. Bundle errors
+        substituted = [
+            {
+                'viseme_path': viseme_path_identifier(target_phonemes[deletion[0][0]:deletion[0][0]]),
+                'start_index': int(deletion[0][0]),
+                'end_index': int(deletion[0][1]),
+                'type': 'substitution',
+                'correct': reference_text[deletion[0][0]:deletion[0][0]]
+            }
 
-        return similarity, matches, substitutions, deletions, insertions
+            for deletion in deletions
+        ]
+
+        inserted = [
+            {
+                'start_index': int(insertion[0][0]),
+                'end_index': int(insertion[0][1]),
+                'type': 'insertion',
+            }
+
+            for insertion in insertions
+        ]
+
+        deleted = [
+            {
+                'viseme_path': viseme_path_identifier(target_phonemes[insertion[0][0]:insertion[0][0]]),
+                'index': int(deletion[0][0]),
+                'type': 'deletion',
+                'correct': reference_text[insertion[0][0]:insertion[0][1]]
+            }
+
+            for deletion in deletions
+        ]
+
+        return similarity, substituted, inserted, deleted
+    
+listener = Listener()
+
+if __name__ == "__main__":
+    audio_path = 'test.wav' # Audio of reference_speech
+    reference_speech = 'Anthony likes apple pie'
+    output = listener(reference_speech, audio_path)
+
+    print(output)

@@ -102,7 +102,6 @@ body {
 .card {
     background: var(--card-background);
     border-radius: 16px;
-    padding: 20px;
     box-shadow: var(--shadow);
     border: 2px solid var(--border-color);
     transition: transform 0.2s, box-shadow 0.2s;
@@ -193,6 +192,7 @@ body {
     align-items: center;
     justify-content: center;
     gap: 15px;
+    padding: 20px;
 }
 
 .recording-controls {
@@ -385,7 +385,6 @@ audio {
     text-align: center;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 25px;
     border-radius: 12px;
     animation: fadeIn 0.5s ease;
     gap: 20px;
@@ -634,6 +633,7 @@ audio {
     margin-top: 20px;
     font-size: 15px;
     line-height: 1.6;
+    margin: 0 auto;
 }
 
 .ai-message p {

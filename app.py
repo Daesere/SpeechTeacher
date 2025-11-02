@@ -58,7 +58,7 @@ class API:
         try:
             filename = f"tmp.wav"
             filepath = os.path.join(RECORDINGS_DIR, filename)
-            score, substituted, inserted, deleted, conversation = listener(sentence, filepath)
+            score, substituted, inserted, deleted, conversation, target_phonemes = listener(sentence, filepath)
             # with open("out.pkl", "w") as f:
             #     pickle.dumps((score, substituted, inserted, deleted, conversation), f)
             print(score, substituted, inserted, deleted, conversation)
@@ -67,7 +67,7 @@ class API:
 
             return {
                 "success": True,
-                "sentence": sentence,
+                "sentence": target_phonemes,
                 "corrections": corrections,
                 "message": conversation,
                 "score": score,

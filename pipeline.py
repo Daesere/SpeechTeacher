@@ -91,8 +91,8 @@ class Listener():
         # Simulated error locations
         substituted = [{
             'viseme_path': 'visemes/viseme-id-2.jpg',  # Example path
-            'start_index': 8,
-            'end_index': 12,
+            'start_index': 10,
+            'end_index': 11,
             'type': 'substitution',
             'correct': 'laɪks'
         }]
@@ -141,7 +141,8 @@ class Listener():
         • Natural speaking pace
 
         Keep practicing these sounds, and you'll see improvement quickly! Would you like to try again?"""
-        return similarity, substituted, inserted, deleted, feedback
+        
+        return similarity, substituted, inserted, deleted, feedback, target_phonemes
         user_phonemes = self.speech2phonemes(audio_path)
         target_phonemes = self.text2phonemes(reference_text)
 

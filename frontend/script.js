@@ -275,6 +275,10 @@ async function submitRecording() {
     
     console.log('Submitting recording for analysis...');
     
+    // Show loading overlay while saving/analyzing
+    const loading = document.getElementById('loadingOverlay');
+    if (loading) loading.classList.remove('hidden');
+
     try {
         // Create blob from audio chunks
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
@@ -303,10 +307,11 @@ async function submitRecording() {
         } else {
             throw new Error(result.error || 'Failed to analyze audio');
         }
-        
     } catch (error) {
         console.error('Error submitting recording:', error);
         alert('Failed to analyze recording. Please try again.');
+    } finally {
+        if (loading) loading.classList.add('hidden');
     }
 }
 
@@ -379,15 +384,7 @@ function showFeedback(result) {
     const safeCorrections = JSON.stringify(corrections).replace(/</g, "\\u003c").replace(/'/g, "&#39;");
     feedbackHTML += `<div id="__corrections_data" style="display:none" data-json='${safeCorrections}'></div>`;
 
-        // AI message (markdown converted to HTML) - always show the message even when there are corrections
-        if (messageHtml) {
-            feedbackHTML += `
-                <div class="ai-message">
-                    ${messageHtml}
-                </div>
-            `;
-        }
-
+        // The final AI message will be populated into #finalFeedbackBox after we insert the feedback HTML.
         feedbackHTML += '</div>';
     } else {
         feedbackHTML += '<div class="perfect-message">';
@@ -415,11 +412,17 @@ function showFeedback(result) {
     }
     
     feedbackContent.innerHTML = feedbackHTML;
-    
-    // Set up hover interactions after content is rendered
+
+    // Populate and show the persistent final feedback box (always visible, independent of carousel)
+    const finalBox = document.getElementById('finalFeedbackBox');
+    if (finalBox) {
+        finalBox.innerHTML = messageHtml || '';
+        finalBox.classList.remove('hidden');
+    }
+
+    // Set up hover interactions and carousel after content is rendered
     setupCorrectionHoverEffects();
-    // Set up carousel (if corrections were provided)
-    setupCorrectionCarousel();
+    setupCorrectionCarousel(result);
 }
 
 // Simple HTML-escaping helper
@@ -491,8 +494,8 @@ function setupCorrectionHoverEffects() {
 }
 
 // Setup a single-card carousel to page through corrections one-by-one
-function setupCorrectionCarousel() {
-    let corrections = window.__corrections_for_carousel;
+function setupCorrectionCarousel(result) {
+    let corrections = result.corrections;
     // Fallback: read from hidden DOM node inserted with feedback HTML
     if ((!corrections || corrections.length === 0) && document.getElementById('__corrections_data')) {
         try {
@@ -505,8 +508,9 @@ function setupCorrectionCarousel() {
     }
     if (!corrections || corrections.length === 0) return;
 
-    const sentence = sentenceDisplay.textContent || '';
+    const sentence = result.sentence;
     let current = 0;
+    let finished = false;
 
     const cardBody = document.getElementById('errorCardBody');
     const prevBtn = document.getElementById('prevErrorBtn');
@@ -518,12 +522,24 @@ function setupCorrectionCarousel() {
         const c = corrections[current];
         const errorText = sentence.substring(c.start_index, c.end_index) || '';
         const type = c.type || '';
-        const imagePath = c.viseme_img_path ? c.viseme_img_path.replace(/\\/g, '/') : null;
+        const imagePath = c.viseme_img_path;
+        const imageData = c.viseme_img_data;
 
         let html = '<div class="viseme-card active" style="opacity:1;transform:none;">';
         html += `<div class="viseme-label"><span class="error-word">\"${escapeHtml(errorText)}\"</span><span class="error-type ${type}">${type}</span></div>`;
-        if (imagePath) {
-            html += `<img src="${imagePath}" alt="Viseme" class="viseme-img" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22%3E%3Crect fill=%23ccc width=%22180%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%23666%3EImage not found%3C/text%3E%3C/svg%3E';"/>`;
+        if (imageData) {
+            // Backend provided embedded base64 data for the image; use it directly
+            console.log('Rendering embedded viseme image (data URL)');
+            html += `<img src="${imageData}" alt="Viseme" class="viseme-img" onerror="console.warn('Embedded image load failed', this.src); this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22%3E%3Crect fill=%23ccc width=%22180%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%23666%3EImage not found%3C/text%3E%3C/svg%3E';"/>`;
+        } else if (imagePath) {
+            // If the backend provided a relative path (e.g. 'visemes/xxx.jpg'), use it directly.
+            // Otherwise encode the URI to handle spaces and special chars.
+            const encoded = imagePath.indexOf('://') === -1 ? imagePath : encodeURI(imagePath);
+            // Log for debugging
+            console.log('Rendering viseme image:', encoded);
+            html += `<img src="${encoded}" alt="Viseme" class="viseme-img" onerror="console.warn('Image load failed', this.src); this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22%3E%3Crect fill=%23ccc width=%22180%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%23666%3EImage not found%3C/text%3E%3C/svg%3E';"/>`;
+            // Small debug line showing the URI so you can confirm which URL was used
+            html += `<div class="image-path">${escapeHtml(encoded)}</div>`;
         }
         html += `<p class="viseme-hint">Try positioning your mouth like this</p>`;
         html += `<div class="carousel-progress">Correction ${current + 1} of ${corrections.length}</div>`;
@@ -531,36 +547,57 @@ function setupCorrectionCarousel() {
 
         cardBody.innerHTML = html;
 
-        // Highlight the current error span in the sentence
+        // Highlight the current error span in the sentence (do NOT scroll the page)
         feedbackContent.querySelectorAll('.current-error').forEach(el => el.classList.remove('current-error'));
         const span = feedbackContent.querySelector(`[data-correction-index="${current}"]`);
         if (span) span.classList.add('current-error');
 
         // Update buttons
         prevBtn.disabled = current === 0;
+        // Next button shows 'Continue' on last correction
         nextBtn.textContent = (current === corrections.length - 1) ? 'Continue' : 'Next';
+        // Keep Next enabled so the user can finish; disable both after finishing
+        if (finished) {
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+        }
     }
 
     prevBtn.addEventListener('click', () => {
+        if (finished) return; // no-op after finished
         if (current > 0) {
-            current--;
+            current = Math.max(0, current - 1);
             render();
         }
     });
 
     nextBtn.addEventListener('click', () => {
+        if (finished) return; // no-op after finished
         if (current < corrections.length - 1) {
-            current++;
+            current = Math.min(corrections.length - 1, current + 1);
             render();
         } else {
-            // Finished reviewing corrections
+            // Finished reviewing corrections (only run once)
+            finished = true;
             const carousel = document.getElementById('errorCarousel');
             if (carousel) carousel.style.display = 'none';
             // remove highlight
             feedbackContent.querySelectorAll('.current-error').forEach(el => el.classList.remove('current-error'));
-            // focus AI message
-            const aiMessage = feedbackContent.querySelector('.ai-message');
-            if (aiMessage) aiMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // reveal the AI message by moving stored HTML into a large final box
+            const storage = document.getElementById('__ai_message_storage');
+            if (storage) {
+                const finalBox = document.createElement('div');
+                finalBox.className = 'final-ai-box';
+                finalBox.innerHTML = storage.innerHTML || '';
+                // remove storage node and append final box under feedbackContent
+                storage.remove();
+                feedbackContent.appendChild(finalBox);
+                // Do not force scroll; keep feedback visible. Optionally, gently focus.
+                finalBox.focus?.();
+            }
+            // disable buttons to prevent further clicks
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
         }
     });
 

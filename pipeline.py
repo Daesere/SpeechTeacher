@@ -90,7 +90,7 @@ class Listener():
         
         # Simulated error locations
         substituted = [{
-            'viseme_path': 'visemes/viseme-id-2.jpg',  # Example path
+            'viseme_path': 'frontend/visemes/viseme-id-2.jpg',  # Example path
             'start_index': 10,
             'end_index': 11,
             'type': 'substitution',

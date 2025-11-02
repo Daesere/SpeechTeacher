@@ -13,11 +13,11 @@
             <header class="header">
                 <div class="logo">
                     <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                        <circle cx="20" cy="20" r="20" fill="#58CC02"/>
+                        <circle cx="20" cy="20" r="20" fill="#3331ac"/>
                         <path d="M20 10 L25 15 L20 20 L15 15 Z" fill="white"/>
                         <path d="M12 22 Q20 28 28 22" stroke="white" stroke-width="3" fill="none"/>
                     </svg>
-                    <h1>Speech Teacher</h1>
+                    <h1>Spishy, The Speech Fish</h1>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-fill" id="progress"></div>
@@ -109,12 +109,26 @@
                         <div class="feedback-message" id="feedbackContent">
                             <p>Great job! Your pronunciation is improving.</p>
                         </div>
+                        <!-- Final feedback box: always visible and independent from the error carousel -->
+                        <div id="finalFeedbackBox" class="final-ai-box hidden" tabindex="0"></div>
                         <button class="btn btn-primary btn-compact" id="newRecordingBtn">
                             New Recording
                         </button>
                     </div>
                 </section>
             </main>
+        </div>
+        <!-- Loading overlay shown during submit/analysis -->
+        <div id="loadingOverlay" class="loading-overlay hidden" aria-hidden="true">
+            <div class="loading-body">
+                <div class="loader">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>
+                <div class="loading-text">Analyzing your recording…</div>
+            </div>
         </div>
     </body>
 </html>

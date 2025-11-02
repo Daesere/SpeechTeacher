@@ -64,7 +64,7 @@ class API:
             )
             # with open("out.pkl", "w") as f:
             #     pickle.dumps((score, substituted, inserted, deleted, conversation), f)
-            print(score, substituted, inserted, deleted, conversation)
+            print(score, substituted, inserted,deleted, conversation)
 
             corrections = substituted + inserted + deleted
 

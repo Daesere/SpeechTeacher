@@ -19,10 +19,10 @@ class Listener():
     """
     def __init__(self):
         self.model_name = "facebook/wav2vec2-lv-60-espeak-cv-ft"
-        # self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(self.model_name)
-        # self.tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_name)
-        # self.processor = Wav2Vec2Processor.from_pretrained(self.model_name, feature_extractor=self.feature_extractor, tokenizer=self.tokenizer)
-        # self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
+        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(self.model_name)
+        self.tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_name)
+        self.processor = Wav2Vec2Processor.from_pretrained(self.model_name, feature_extractor=self.feature_extractor, tokenizer=self.tokenizer)
+        self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
 
     def speech2phonemes(self, audio_path):
         """Transforms user audio into IPA phonemes for evaluation"""
@@ -81,6 +81,8 @@ class Listener():
     
     def __call__(self, reference_text, audio_path):
         """Makes the whole pipeline run from start to finish"""
+
+        """
         # Step 1. Get the user's phonemes and the reference phonemes
         similarity = 75
     
@@ -102,7 +104,7 @@ class Listener():
         deleted = []   # No deletions in this example
         
         
-        feedback = """Here's my feedback on your pronunciation:
+        feedback = Here's my feedback on your pronunciation:
 
         1. Overall Score: 75% - Good effort, but there's room for improvement!
 
@@ -140,56 +142,50 @@ class Listener():
         • Good word stress patterns
         • Natural speaking pace
 
-        Keep practicing these sounds, and you'll see improvement quickly! Would you like to try again?"""
+        Keep practicing these sounds, and you'll see improvement quickly! Would you like to try again?
         
         return similarity, substituted, inserted, deleted, feedback, target_phonemes
+        """
+
+        # Generate phonemes from audio and reference text
         user_phonemes = self.speech2phonemes(audio_path)
         target_phonemes = self.text2phonemes(reference_text)
 
         # Step 2. Get similarity misalignment indices between attempt and target
         similarity, matches, substitutions, deletions, insertions = self.get_misalignments(user_phonemes, target_phonemes)
-        
-        # 3. Bundle errors
-        substituted = [
-            {
-                'viseme_path': viseme_path_identifier(target_phonemes[deletion[0][0]:deletion[0][1]]),
-                'start_index': int(deletion[0][0]),
-                'end_index': int(deletion[0][1]),
-                'type': 'substitution',
-                'correct': reference_text[deletion[0][0]:deletion[0][0]]
-            }
 
-            for deletion in deletions
-        ]
+        # IMPORTANT NOTE: Error indices are packed as [((ref_start, ref_end), (att_start, att_end))]
 
-        inserted = [
-            {
-                'start_index': int(insertion[0][0]),
-                'end_index': int(insertion[0][1]),
-                'type': 'insertion',
-            }
+        # Bundle up my substitution
+        substituted = [{
+            'viseme_path': viseme_path_identifier(target_phonemes[substitution[0][0]:substitution[0][1]]),
+            'start_index': substitution[0][0],
+            'end_index': substitution[0][1],
+            'type': 'substitution',
+            'correct': target_phonemes[substitution[0][0]:substitution[0][1]]
+        } for substitution in substitutions]
 
-            for insertion in insertions
-        ]
+        # Bundle up my insertions
+        inserted = [{
+            'start_index': insertion[0][0],
+            'end_index': insertion[0][1],
+            'type': 'insertion',
+        } for insertion in insertions]
 
-        deleted = [
-            {
-                'viseme_path': viseme_path_identifier(target_phonemes[deletion[0][0]:deletion[0][1]]),
-                'index': int(deletion[0][0]),
-                'type': 'deletion',
-                'correct': reference_text[deletion[0][0]:deletion[0][1]]
-            }
-
-            for deletion in deletions
-        ]
+        # Bundle up my deletions
+        deleted = [{
+            'viseme_path': viseme_path_identifier(target_phonemes[deletion[0][0]:deletion[0][1]]),
+            'start_index': deletion[0][0],
+            'end_index': deletion[0][1],
+            'type': 'deletion',
+            'correct': target_phonemes[deletion[0][0]:deletion[0][1]]
+        } for deletion in deletions]
 
         errors = [target_phonemes[deletion[0][0]:deletion[0][1]] for deletion in deletions] + [target_phonemes[sub[0][0]:sub[0][1]] for sub in substitutions]
         feedback = nl_feedback(reference_text, target_phonemes, user_phonemes, errors)
-        
-        # Add some formatting to make the feedback stand out
-        conversation = f"**Feedback**: {feedback}"
 
-        return similarity, substituted, inserted, deleted, feedback
+        # Target these variables to return
+        return similarity, substituted, inserted, deleted, feedback, target_phonemes
     
 listener = Listener()
 

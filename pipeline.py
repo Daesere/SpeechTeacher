@@ -19,10 +19,10 @@ class Listener():
     """
     def __init__(self):
         self.model_name = "facebook/wav2vec2-lv-60-espeak-cv-ft"
-        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(self.model_name)
-        self.tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_name)
-        self.processor = Wav2Vec2Processor.from_pretrained(self.model_name, feature_extractor=self.feature_extractor, tokenizer=self.tokenizer)
-        self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
+        # self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(self.model_name)
+        # self.tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_name)
+        # self.processor = Wav2Vec2Processor.from_pretrained(self.model_name, feature_extractor=self.feature_extractor, tokenizer=self.tokenizer)
+        # self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
 
     def speech2phonemes(self, audio_path):
         """Transforms user audio into IPA phonemes for evaluation"""

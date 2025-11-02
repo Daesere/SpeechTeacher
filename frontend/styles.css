@@ -533,6 +533,32 @@ audio {
     border-color: rgba(255, 255, 255, 0.5);
 }
 
+/* Highlight the currently selected error in the sentence */
+.current-error {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+    transform: scale(1.03);
+}
+
+/* Carousel card styles */
+.error-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.error-card-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.carousel-progress {
+    font-size: 13px;
+    opacity: 0.9;
+    margin-top: 6px;
+}
+
 .viseme-label {
     display: flex;
     align-items: center;

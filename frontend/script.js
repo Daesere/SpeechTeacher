@@ -354,28 +354,27 @@ function showFeedback(result) {
         }
         feedbackHTML += '</div>';
         
-        // Right side: Viseme images for corrections
-        const correctionsWithVisemes = result.corrections.filter(c => c.viseme_img_path);
-        if (correctionsWithVisemes.length > 0) {
-            feedbackHTML += '<div class="viseme-corrections">';
-            feedbackHTML += '<h3>How to improve:</h3>';
-            correctionsWithVisemes.forEach((correction, index) => {
-                const errorText = result.sentence.substring(correction.start_index, correction.end_index);
-                // Use file:// protocol for local file access in pywebview
-                const imagePath = correction.viseme_img_path;
-                feedbackHTML += `
-                    <div class="viseme-card" data-correction-index="${index}">
-                        <div class="viseme-label">
-                            <span class="error-word">"${errorText}"</span>
-                            <span class="error-type ${correction.type}">${correction.type}</span>
-                        </div>
-                        <img src="${imagePath}" alt="Correct mouth position" class="viseme-img" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22%3E%3Crect fill=%22%23ccc%22 width=%22180%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23666%22%3EImage not found%3C/text%3E%3C/svg%3E';"/>
-                        <p class="viseme-hint">Try positioning your mouth like this</p>
-                    </div>
-                `;
-            });
-            feedbackHTML += '</div>';
-        }
+        // Right side: Error carousel (one correction at a time)
+        const corrections = [...result.corrections].sort((a, b) => a.start_index - b.start_index);
+        feedbackHTML += '<div class="viseme-corrections">';
+        feedbackHTML += '<h3>Errors</h3>';
+        feedbackHTML += '<div class="error-carousel" id="errorCarousel">';
+        // placeholder card; will be populated by JS after DOM insert
+        feedbackHTML += `
+            <div class="error-card" id="errorCard">
+                <div class="error-card-body" id="errorCardBody">Loading corrections...</div>
+                <div class="error-card-controls">
+                    <button class="btn btn-secondary btn-compact" id="prevErrorBtn">Prev</button>
+                    <button class="btn btn-primary btn-compact" id="nextErrorBtn">Next</button>
+                </div>
+            </div>
+        `;
+        feedbackHTML += '</div>';
+        feedbackHTML += '</div>';
+
+    // Expose corrections via a hidden DOM node so we can wire up carousel behavior after insert
+    const safeCorrections = JSON.stringify(corrections).replace(/</g, "\\u003c").replace(/'/g, "&#39;");
+    feedbackHTML += `<div id="__corrections_data" style="display:none" data-json='${safeCorrections}'></div>`;
 
         // AI message (markdown converted to HTML) - always show the message even when there are corrections
         if (messageHtml) {
@@ -416,6 +415,8 @@ function showFeedback(result) {
     
     // Set up hover interactions after content is rendered
     setupCorrectionHoverEffects();
+    // Set up carousel (if corrections were provided)
+    setupCorrectionCarousel();
 }
 
 // Simple HTML-escaping helper
@@ -486,6 +487,84 @@ function setupCorrectionHoverEffects() {
     });
 }
 
+// Setup a single-card carousel to page through corrections one-by-one
+function setupCorrectionCarousel() {
+    let corrections = window.__corrections_for_carousel;
+    // Fallback: read from hidden DOM node inserted with feedback HTML
+    if ((!corrections || corrections.length === 0) && document.getElementById('__corrections_data')) {
+        try {
+            const json = document.getElementById('__corrections_data').getAttribute('data-json');
+            corrections = JSON.parse(json || '[]');
+        } catch (e) {
+            console.warn('Failed to parse corrections JSON from DOM', e);
+            corrections = [];
+        }
+    }
+    if (!corrections || corrections.length === 0) return;
+
+    const sentence = sentenceDisplay.textContent || '';
+    let current = 0;
+
+    const cardBody = document.getElementById('errorCardBody');
+    const prevBtn = document.getElementById('prevErrorBtn');
+    const nextBtn = document.getElementById('nextErrorBtn');
+
+    if (!cardBody || !prevBtn || !nextBtn) return;
+
+    function render() {
+        const c = corrections[current];
+        const errorText = sentence.substring(c.start_index, c.end_index) || '';
+        const type = c.type || '';
+        const imagePath = c.viseme_img_path ? c.viseme_img_path.replace(/\\/g, '/') : null;
+
+        let html = '<div class="viseme-card active" style="opacity:1;transform:none;">';
+        html += `<div class="viseme-label"><span class="error-word">\"${escapeHtml(errorText)}\"</span><span class="error-type ${type}">${type}</span></div>`;
+        if (imagePath) {
+            html += `<img src="${imagePath}" alt="Viseme" class="viseme-img" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22%3E%3Crect fill=%23ccc width=%22180%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%23666%3EImage not found%3C/text%3E%3C/svg%3E';"/>`;
+        }
+        html += `<p class="viseme-hint">Try positioning your mouth like this</p>`;
+        html += `<div class="carousel-progress">Correction ${current + 1} of ${corrections.length}</div>`;
+        html += '</div>';
+
+        cardBody.innerHTML = html;
+
+        // Highlight the current error span in the sentence
+        feedbackContent.querySelectorAll('.current-error').forEach(el => el.classList.remove('current-error'));
+        const span = feedbackContent.querySelector(`[data-correction-index="${current}"]`);
+        if (span) span.classList.add('current-error');
+
+        // Update buttons
+        prevBtn.disabled = current === 0;
+        nextBtn.textContent = (current === corrections.length - 1) ? 'Continue' : 'Next';
+    }
+
+    prevBtn.addEventListener('click', () => {
+        if (current > 0) {
+            current--;
+            render();
+        }
+    });
+
+    nextBtn.addEventListener('click', () => {
+        if (current < corrections.length - 1) {
+            current++;
+            render();
+        } else {
+            // Finished reviewing corrections
+            const carousel = document.getElementById('errorCarousel');
+            if (carousel) carousel.style.display = 'none';
+            // remove highlight
+            feedbackContent.querySelectorAll('.current-error').forEach(el => el.classList.remove('current-error'));
+            // focus AI message
+            const aiMessage = feedbackContent.querySelector('.ai-message');
+            if (aiMessage) aiMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+
+    // Initial render
+    render();
+}
+
 // Highlight sentence with corrections
 function highlightSentenceWithCorrections(sentence, corrections) {
     if (!corrections || corrections.length === 0) {
@@ -495,6 +574,7 @@ function highlightSentenceWithCorrections(sentence, corrections) {
     let html = '';
     let lastIndex = 0;
     let visemeIndex = 0;
+    let correctionIndex = 0;
     
     // Sort corrections by start_index
     const sortedCorrections = [...corrections].sort((a, b) => a.start_index - b.start_index);
@@ -508,7 +588,10 @@ function highlightSentenceWithCorrections(sentence, corrections) {
         // Add highlighted correction based on type
         const errorText = sentence.substring(correction.start_index, correction.end_index);
         const hasViseme = correction.viseme_img_path ? true : false;
-        const dataAttr = hasViseme ? `data-viseme-index="${visemeIndex}"` : '';
+        // Always attach a data-correction-index so we can reference it from the carousel
+        const dataCorrectionAttr = `data-correction-index="${correctionIndex}"`;
+        const dataVisemeAttr = hasViseme ? ` data-viseme-index="${visemeIndex}"` : '';
+        const dataAttr = `${dataCorrectionAttr}${dataVisemeAttr}`;
         
         if (correction.type === 'insertion') {
             // Insertion: show with red dotted underline (these characters shouldn't be said)
@@ -522,6 +605,7 @@ function highlightSentenceWithCorrections(sentence, corrections) {
         }
         
         if (hasViseme) visemeIndex++;
+        correctionIndex++;
         lastIndex = correction.end_index;
     });
     

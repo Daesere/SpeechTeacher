@@ -74,9 +74,9 @@ def viseme_path_identifier(diffs):
     ids = viseme_identifier(diffs)
     paths = []
     for id, phoneme in ids:
-        path = f"./frontend/visemes/viseme-id-{id}.jpg"
+        path = f"visemes/viseme-id-{id}.jpg"
         paths.append(path)
-    return paths
+    return paths[0]
 
 # --------------------------
 # Prompt construction

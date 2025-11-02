@@ -156,36 +156,70 @@ class Listener():
 
         # IMPORTANT NOTE: Error indices are packed as [((ref_start, ref_end), (att_start, att_end))]
 
-        # Bundle up my substitution
-        substituted = [{
-            'viseme_path': viseme_path_identifier(target_phonemes[substitution[0][0]:substitution[0][1]]),
-            'start_index': substitution[0][0],
-            'end_index': substitution[0][1],
-            'type': 'substitution',
-            'correct': target_phonemes[substitution[0][0]:substitution[0][1]]
-        } for substitution in substitutions]
+        # Bundle up substitutions: if the viseme identifier returns multiple paths,
+        # emit one correction entry per viseme so the frontend can render each separately.
+        substituted = []
+        for substitution in substitutions:
+            ref_start, ref_end = substitution[0][0], substitution[0][1]
+            viseme_paths = viseme_path_identifier(target_phonemes[ref_start:ref_end])
+            # If viseme_paths is a list, create one correction per path
+            if isinstance(viseme_paths, (list, tuple)) and len(viseme_paths) > 0:
+                for vp in viseme_paths:
+                    substituted.append({
+                        'viseme_path': vp,
+                        'start_index': ref_start,
+                        'end_index': ref_end,
+                        'type': 'substitution',
+                        'correct': target_phonemes[ref_start:ref_end]
+                    })
+            else:
+                # fallback, keep single entry with whatever was returned
+                substituted.append({
+                    'viseme_path': viseme_paths,
+                    'start_index': ref_start,
+                    'end_index': ref_end,
+                    'type': 'substitution',
+                    'correct': target_phonemes[ref_start:ref_end]
+                })
 
-        # Bundle up my insertions
-        inserted = [{
-            'start_index': insertion[0][0],
-            'end_index': insertion[0][1],
-            'type': 'insertion',
-        } for insertion in insertions]
+        # Bundle up my insertions (no viseme images expected)
+        inserted = []
+        for insertion in insertions:
+            ref_start, ref_end = insertion[0][0], insertion[0][1]
+            inserted.append({
+                'start_index': ref_start,
+                'end_index': ref_end,
+                'type': 'insertion',
+            })
 
-        # Bundle up my deletions
-        deleted = [{
-            'viseme_path': viseme_path_identifier(target_phonemes[deletion[0][0]:deletion[0][1]]),
-            'start_index': deletion[0][0],
-            'end_index': deletion[0][1],
-            'type': 'deletion',
-            'correct': target_phonemes[deletion[0][0]:deletion[0][1]]
-        } for deletion in deletions]
+        # Bundle up deletions similarly to substitutions (may have visemes)
+        deleted = []
+        for deletion in deletions:
+            ref_start, ref_end = deletion[0][0], deletion[0][1]
+            viseme_paths = viseme_path_identifier(target_phonemes[ref_start:ref_end])
+            if isinstance(viseme_paths, (list, tuple)) and len(viseme_paths) > 0:
+                for vp in viseme_paths:
+                    deleted.append({
+                        'viseme_path': vp,
+                        'start_index': ref_start,
+                        'end_index': ref_end,
+                        'type': 'deletion',
+                        'correct': target_phonemes[ref_start:ref_end]
+                    })
+            else:
+                deleted.append({
+                    'viseme_path': viseme_paths,
+                    'start_index': ref_start,
+                    'end_index': ref_end,
+                    'type': 'deletion',
+                    'correct': target_phonemes[ref_start:ref_end]
+                })
 
         errors = [target_phonemes[deletion[0][0]:deletion[0][1]] for deletion in deletions] + [target_phonemes[sub[0][0]:sub[0][1]] for sub in substitutions]
         feedback = nl_feedback(reference_text, target_phonemes, user_phonemes, errors)
 
         # Target these variables to return
-        return similarity, substituted, inserted, deleted, feedback, target_phonemes
+        return similarity, substituted, inserted, deleted, feedback, target_phonemes, user_phonemes
     
 listener = Listener()
 

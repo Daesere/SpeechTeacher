@@ -341,7 +341,7 @@ function showFeedback(result) {
         feedbackHTML += '<div class="corrections-container">';
         feedbackHTML += '<h3>Your Pronunciation:</h3>';
         feedbackHTML += '<div class="sentence-with-corrections">';
-        feedbackHTML += highlightSentenceWithCorrections(result.sentence, null);
+        feedbackHTML += highlightSentenceWithCorrections(result.user_phonemes, null);
         feedbackHTML += '</div>';
         feedbackHTML += '<div class="sentence-with-corrections">';
         feedbackHTML += highlightSentenceWithCorrections(result.sentence, result.corrections);
@@ -522,24 +522,20 @@ function setupCorrectionCarousel(result) {
         const c = corrections[current];
         const errorText = sentence.substring(c.start_index, c.end_index) || '';
         const type = c.type || '';
-        const imagePath = c.viseme_img_path;
-        const imageData = c.viseme_img_data;
+        const imagePath = c.viseme_path;
+
+        const readableType = {
+            insertion: "You added a sound",
+            deletion: "You forgot to say this",
+            substitution: "You should have said this instead"
+        }[type];
 
         let html = '<div class="viseme-card active" style="opacity:1;transform:none;">';
-        html += `<div class="viseme-label"><span class="error-word">\"${escapeHtml(errorText)}\"</span><span class="error-type ${type}">${type}</span></div>`;
-        if (imageData) {
+        html += `<div class="viseme-label"><span class="error-word">\"${escapeHtml(errorText)}\"</span><span class="error-type ${type}">${readableType}</span></div>`;
+        if (imagePath) {
             // Backend provided embedded base64 data for the image; use it directly
             console.log('Rendering embedded viseme image (data URL)');
-            html += `<img src="${imageData}" alt="Viseme" class="viseme-img" onerror="console.warn('Embedded image load failed', this.src); this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22%3E%3Crect fill=%23ccc width=%22180%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%23666%3EImage not found%3C/text%3E%3C/svg%3E';"/>`;
-        } else if (imagePath) {
-            // If the backend provided a relative path (e.g. 'visemes/xxx.jpg'), use it directly.
-            // Otherwise encode the URI to handle spaces and special chars.
-            const encoded = imagePath.indexOf('://') === -1 ? imagePath : encodeURI(imagePath);
-            // Log for debugging
-            console.log('Rendering viseme image:', encoded);
-            html += `<img src="${encoded}" alt="Viseme" class="viseme-img" onerror="console.warn('Image load failed', this.src); this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22%3E%3Crect fill=%23ccc width=%22180%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%23666%3EImage not found%3C/text%3E%3C/svg%3E';"/>`;
-            // Small debug line showing the URI so you can confirm which URL was used
-            html += `<div class="image-path">${escapeHtml(encoded)}</div>`;
+            html += `<img src="${imagePath}" alt="Viseme" class="viseme-img" onerror="console.warn('Embedded image load failed', this.src); this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22%3E%3Crect fill=%23ccc width=%22180%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%23666%3EImage not found%3C/text%3E%3C/svg%3E';"/>`;
         }
         html += `<p class="viseme-hint">Try positioning your mouth like this</p>`;
         html += `<div class="carousel-progress">Correction ${current + 1} of ${corrections.length}</div>`;
